@@ -3,14 +3,13 @@ import pandas as pd
 from pykrx import stock
 from datetime import datetime, timedelta, date
 import matplotlib.pyplot as plt
-import pandas.plotting as pd_plotting
 from urllib.request import urlopen
 import urllib.parse
 import requests
 import re
 import holidays
 import os
-import dataframe_image as dfi  # 추가된 import
+import imgkit  # 추가된 import
 
 # 결과는 18시 이후 나옴
 # 투신, 연기금, 사모 => (금융투자 / 보험 / 투신 / 사모 / 은행 / 기타금융 / 연기금 / 기관합계 / 기타법인 / 개인 / 외국인합계 / 기타외국인 / 전체)
@@ -75,14 +74,28 @@ def get_stock_trading_value_by_date(ticker, start_date, end_date, investor, deta
         end_date: 종료일
         investor: 투자자 유형
         detail: 상세 데이터 여부 (기본값: True)
+    Returns:
+        int: 연속 매수일 수
+        None: 데이터가 없는 경우
     """
-    df = stock.get_market_trading_value_by_date(start_date, end_date, ticker, detail=detail)
-    df_sorted = df.sort_index(ascending=False)
-    
-    # 외국인의 경우 '외국인합계' 컬럼 사용
-    investor_key = '외국인합계' if investor == '외국인' else investor
-    consecutive_positive_days = check_consecutive_positive_days(df_sorted[investor_key])
-    return consecutive_positive_days
+    try:
+        df = stock.get_market_trading_value_by_date(start_date, end_date, ticker, detail=detail)
+        
+        # DataFrame이 비어있는 경우 None 반환
+        if df.empty:
+            print(f"Warning: No data available for ticker {ticker}")
+            return None
+            
+        df_sorted = df.sort_index(ascending=False)
+        
+        # 외국인의 경우 '외국인합계' 컬럼 사용
+        investor_key = '외국인합계' if investor == '외국인' else investor
+        consecutive_positive_days = check_consecutive_positive_days(df_sorted[investor_key])
+        return consecutive_positive_days
+        
+    except Exception as e:
+        print(f"Error processing ticker {ticker}: {str(e)}")
+        return None
 
 def check_consecutive_positive_days(series):
     max_consecutive_days = 0
@@ -100,7 +113,7 @@ def check_consecutive_positive_days(series):
 
 def get_top_15_stocks_by_volume(date):
     ohlcv_data = stock.get_market_ohlcv(date=date, market="ALL") # 특정 날짜의 모든 종목의 OHLCV 데이터를 가져옵니다.
-    ohlcv_data['거래량'] = ohlcv_data['거래량'].astype(int) # '거래량' 열을 정수형으로 변환합니���.
+    ohlcv_data['거래량'] = ohlcv_data['거래량'].astype(int) # '거래량' 열을 정수형으로 변환합니다.
     sorted_data = ohlcv_data.sort_values(by="거래량", ascending=False) # DataFrame을 거래량 기준으로 내림차순으로 정렬합니다.
     top_15_stocks = sorted_data.head(15) # 상위 15개 종목을 선택합니다.
     return top_15_stocks
@@ -116,50 +129,6 @@ def transform_df_volume(df):
     df['거래량'] = df['거래량'].apply(lambda x: f"{x:,}")
     df = df.reset_index(drop=True)  # 인덱스 제거
     return df[['종목명', '거래량']]
-
-def save_df_as_image(df, file_name, title):
-    file_name, file_extension = os.path.splitext(file_name)
-    current_date = datetime.now().strftime('%Y%m%d')
-    new_file_path = os.path.join(IMG_DIR, f"{file_name}_{current_date}{file_extension}")
-    
-    # 이전 파일 삭제 (img 폴더 내에서 검색)
-    for old_file in os.listdir(IMG_DIR):
-        if old_file.startswith(file_name) and old_file.endswith(file_extension):
-            os.remove(os.path.join(IMG_DIR, old_file))
-            print(f"기존 파일 삭제: {old_file}")
-
-    fig, ax = plt.subplots(figsize=(6, len(df) * 0.5))  # Adjust the size as needed
-    ax.axis('tight')
-    ax.axis('off')
-    
-    # Add title
-    plt.suptitle(title, fontsize=20, fontweight='bold')
-
-    # 테이블 생성 및 스타일 적용
-    table = ax.table(cellText=df.values, colLabels=df.columns, cellLoc='center', loc='center', bbox=[0, 0, 1, 1])
-
-    # 테이블 스타일 조정
-    table.auto_set_font_size(False)
-    table.set_fontsize(16)
-    table.scale(1.2, 1.2)
-
-    for key, cell in table.get_celld().items():
-        cell.set_edgecolor('black')
-        if key[0] == 0:  # Header row
-            cell.set_text_props(weight='bold', color='white')
-            cell.set_facecolor('#4F81BD')
-        else:
-            종목명 = df.iloc[key[0] - 1, 0]
-            연속매수일_match = re.search(r'\((\d+)\)', 종목명)
-            if 연속매수일_match and int(연속매수일_match.group(1)) > 1:
-                cell.set_text_props(color='red' if key[1] == 0 else 'black')  # Set text color to red for 종목명 column
-            cell.set_facecolor('#DCE6F1' if key[0] % 2 == 0 else 'white')
-
-    plt.savefig(new_file_path, bbox_inches='tight', pad_inches=0.1)
-    print(f"새 파일 저장: {new_file_path}")
-    plt.close(fig)
-
-    return new_file_path
 
 def process_investor_data(investor_info, market, today_yyyymmdd, start_date, today_display, detail=True):
     """투자자별 데이터를 처리하는 함수"""
@@ -194,6 +163,124 @@ def process_volume_data(today_yyyymmdd, today_display):
     new_file_path = save_df_as_image(transformed_df, file_path, title)
     sendTelegramPhoto(new_file_path, title)
 
+def save_df_as_image(df, file_name, title):
+    """DataFrame을 이미지로 저장하는 함수"""
+
+    file_name, file_extension = os.path.splitext(file_name)
+    current_date = datetime.now().strftime('%Y%m%d')
+    new_file_path = os.path.join(IMG_DIR, f"{file_name}_{current_date}{file_extension}")
+    
+    # 이전 파일 삭제
+    for old_file in os.listdir(IMG_DIR):
+        if old_file.startswith(file_name) and old_file.endswith(file_extension):
+            os.remove(os.path.join(IMG_DIR, old_file))
+            print(f"기존 파일 삭제: {old_file}")
+
+    html_str = f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+        <style>
+            body {{
+                font-family: 'Noto Sans KR', sans-serif;
+                margin: 20px;
+            }}
+            table {{
+                border-collapse: collapse;
+                width: 100%;
+                margin: 20px auto;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }}
+            th, td {{
+                border: 1px solid #e0e0e0;
+                padding: 12px 15px;
+                text-align: center;
+            }}
+            th {{
+                background-color: #333333;
+                color: white;
+                font-weight: 700;
+                font-size: 15px;
+                white-space: nowrap;
+            }}
+            td {{
+                font-size: 14px;
+                font-weight: 500;
+            }}
+            tr:nth-child(even) td {{
+                background-color: #f9f9f9;
+            }}
+            tr:hover td {{
+                background-color: #f5f5f5;
+            }}
+            .caption {{
+                text-align: center;
+                font-size: 22px;
+                font-weight: 700;
+                margin: 20px 0;
+                color: #333333;
+            }}
+            .source {{
+                text-align: right;
+                font-size: 12px;
+                color: #666666;
+                margin-top: 15px;
+                font-weight: 400;
+            }}
+            .consecutive {{
+                color: #d32f2f;
+                font-weight: 700;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="caption">{title}</div>
+    '''
+
+    # DataFrame을 HTML로 변환
+    df_html = df.to_html(index=False, classes='styled-table')
+
+    # 연속매수일 표시된 종목 강조 (종목명 컬럼이 있는 경우)
+    if '종목명' in df.columns:
+        for i, row in df.iterrows():
+            value = row['종목명']
+            if re.search(r'\((\d+)\)', str(value)) and int(re.search(r'\((\d+)\)', str(value)).group(1)) > 1:
+                df_html = df_html.replace(f'>{value}<', f' class="consecutive">{value}<')
+
+    html_str += df_html
+    html_str += '''
+        <div class="source">※ 출처 : MQ(Money Quotient)</div>
+    </body>
+    </html>
+    '''
+
+    # imgkit 설정
+    options = {
+        'format': 'png',
+        'encoding': "UTF-8",
+        'quality': 100,
+        'width': 600,
+        'enable-local-file-access': None,
+        'minimum-font-size': 12,
+        'zoom': 1.2,  # 전체적인 크기 조정
+    }
+
+    try:
+        # wkhtmltoimage 경로 설정 (필요한 경우)
+        config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe') #for windows
+        # config = imgkit.config(wkhtmltoimage='/usr/local/bin/wkhtmltoimage') #for centos
+        
+        # HTML을 이미지로 변환
+        imgkit.from_string(html_str, new_file_path, options=options, config=config)
+        print(f"새 파일 저장: {new_file_path}")
+        return new_file_path
+    except Exception as e:
+        print(f"이미지 생성 중 오류 발생: {str(e)}")
+        return None
+
+
 def save_combined_df_as_image(dfs, file_name, today_display, market_type):
     """dataframe데이터를 하나의 이미지로 저장"""
     if not file_name.endswith('.png'):
@@ -209,13 +296,13 @@ def save_combined_df_as_image(dfs, file_name, today_display, market_type):
             os.remove(os.path.join(IMG_DIR, old_file))
             print(f"기존 파일 삭제: {old_file}")
 
-    # 데이터프레임 생성
+    # DataFrame 데이터 준비
     columns = []
     for i, df in enumerate(dfs):
         investor_name = INVESTORS[i if len(dfs) == 3 else i+3]['name']
         columns.extend([
             (investor_name, '종목명'),
-            (investor_name, '순매수대금\n(억원)'),
+            (investor_name, '순매수대금'),
             (investor_name, 'EPS')
         ])
     
@@ -230,56 +317,122 @@ def save_combined_df_as_image(dfs, file_name, today_display, market_type):
     
     df = pd.DataFrame(combined_data, columns=columns)
 
-    # 이미지 생성
-    fig, ax = plt.subplots(figsize=(15, len(df) * 0.5 + 2))  # 높이 여유 추가
-    ax.axis('tight')
-    ax.axis('off')
-    
-    # 제목 추가
+    # 캡션 설정
     if len(dfs) == 3:
-        title = f"{today_display} {market_type} 투신/연기금/사모 순매수대금 TOP 15"
+        caption = f"{today_display} {market_type} 투신/연기금/사모 순매수대금 TOP 15"
     else:
-        title = f"{today_display} {market_type} 외국인/기관 순매수대금 TOP 15"
-    plt.suptitle(title, fontsize=20, fontweight='bold', y=0.95)
+        caption = f"{today_display} {market_type} 외국인/기관 순매수대금 TOP 15"
 
-    # 출처 추가
-    source = "※ 출처 : MQ(Money Quotient)"
-    plt.figtext(0.99, 0.01, source, ha='right', va='bottom', fontsize=8)
+    # HTML 문자열 생성
+    html_str = f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+        <style>
+            body {{
+                font-family: 'Noto Sans KR', sans-serif;
+                margin: 20px;
+            }}
+            table {{
+                border-collapse: collapse;
+                width: 100%;
+                margin: 20px auto;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }}
+            th, td {{
+                border: 1px solid #e0e0e0;
+                padding: 12px 15px;
+                text-align: center;
+            }}
+            th {{
+                background-color: #333333;  /* 변경: 푸른색에서 검정색으로 */
+                color: white;
+                font-weight: 700;
+                font-size: 15px;
+                white-space: nowrap;
+            }}
+            td {{
+                font-size: 14px;
+                font-weight: 500;
+            }}
+            tr:nth-child(even) td {{
+                background-color: #f9f9f9;  /* 변경: 짝수 행 배경색 */
+            }}
+            tr:hover td {{
+                background-color: #f5f5f5;  /* 변경: 호버 시 배경색 */
+            }}
+            .caption {{
+                text-align: center;
+                font-size: 22px;
+                font-weight: 700;
+                margin: 20px 0;
+                color: #333333;  /* 변경: 캡션 색상 */
+            }}
+            .source {{
+                text-align: right;
+                font-size: 12px;
+                color: #666666;  /* 변경: 출처 텍스트 색상 */
+                margin-top: 15px;
+                font-weight: 400;
+            }}
+            .consecutive {{
+                color: #d32f2f;  /* 변경: 연속매수일 강조 색상 */
+                font-weight: 700;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="caption">{caption}</div>
+    '''
 
-    # 테이블 생성
-    table = ax.table(cellText=df.values,
-                    colLabels=df.columns,
-                    cellLoc='center',
-                    loc='center',
-                    bbox=[0, 0.05, 1, 0.9])  # 테이블 위치 조정
-
-    # 테이블 스타일링
-    table.auto_set_font_size(False)
-    table.set_fontsize(12)
+    # DataFrame을 HTML로 변환하고 헤더 텍스트 수정
+    df_html = df.to_html(index=False, classes='styled-table')
     
-    # 셀 스타일 적용
-    for key, cell in table.get_celld().items():
-        cell.set_edgecolor('black')
+    # '순매수대금' 헤더를 '순매수대금<br>(억원)'으로 변경
+    df_html = df_html.replace('>순매수대금<', '>순매수대금<br>(억원)<')
+
+    # '기관합계' 헤더를 '기관'으로 변경
+    df_html = df_html.replace('>기관합계<', '>기관<')
+
+    # 연속매수일 표시된 종목 강조
+    for i in range(len(df)):
+        for col in df.columns:
+            if '종목명' in str(col[1]):
+                value = df.iloc[i][col]
+                if re.search(r'\((\d+)\)', str(value)) and int(re.search(r'\((\d+)\)', str(value)).group(1)) > 1:
+                    df_html = df_html.replace(f'>{value}<', f' class="consecutive">{value}<')
+
+    html_str += df_html
+    html_str += '''
+        <div class="source">※ 출처 : MQ(Money Quotient)</div>
+    </body>
+    </html>
+    '''
+
+    # imgkit 설정
+    options = {
+        'format': 'png',
+        'encoding': "UTF-8",
+        'quality': 100,
+        'width': 1200 if len(dfs) == 3 else 800,  # 투신/연기금/사모일 때는 1200, 외국인/기관일 때는 900
+        'enable-local-file-access': None,
+        'minimum-font-size': 12
+    }
+
+    try:
+        # wkhtmltoimage 경로 설정 (필요한 경우)
+        config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe') #for windows
+        # config = imgkit.config(wkhtmltoimage='/usr/local/bin/wkhtmltoimage') #for centos
         
-        # 헤더 스타일
-        if key[0] == 0:
-            cell.set_facecolor('#4F81BD')
-            cell.set_text_props(weight='bold', color='white')
-        else:
-            # 배경색 설정
-            cell.set_facecolor('#DCE6F1' if key[0] % 2 == 0 else 'white')
-            
-            # 연속매수일 색상 설정 (종목명 열)
-            if key[1] % 3 == 0:  # 종목명 열
-                종목명 = df.iloc[key[0]-1, key[1]]
-                연속매수일_match = re.search(r'\((\d+)\)', str(종목명))
-                if 연속매수일_match and int(연속매수일_match.group(1)) > 1:
-                    cell.get_text().set_color('red')
-
-    plt.savefig(new_file_path, bbox_inches='tight', pad_inches=0.1, dpi=300)
-    plt.close(fig)
-    
-    return new_file_path
+        # HTML을 이미지로 변환
+        imgkit.from_string(html_str, new_file_path, options=options, config=config)
+        print(f"새 파일 저장: {new_file_path}")
+        return new_file_path
+    except Exception as e:
+        print(f"이미지 생성 중 오류 발생: {str(e)}")
+        return None
 
 def main():
     if isTodayHoliday():
@@ -290,19 +443,19 @@ def main():
     
     # 날짜 설정
     today_yyyymmdd = datetime.today().strftime('%Y%m%d')
-    today_yyyymmdd = '20241024'
+    # today_yyyymmdd = '20241024'
     today_dt = datetime.strptime(today_yyyymmdd, '%Y%m%d')
     start_date = (today_dt - timedelta(days=15)).strftime('%Y%m%d')
     today_display = today_dt.strftime('%Y-%m-%d')
     print(f"처리 날짜: {today_display}")
 
     # 전종목 거래량 상위 TOP 15 추출 및 전송
-    # print("\n1. 전종목 거래량 TOP 15 처리 시작")
-    # process_volume_data(today_yyyymmdd, today_display)
-    # print("전종목 거래량 TOP 15 처리 완료")
+    print("\n1. 전종목 거래량 TOP 15 처리 시작")
+    process_volume_data(today_yyyymmdd, today_display)
+    print("전종목 거래량 TOP 15 처리 완료")
     
     # 각 시장별로 처리
-    for market in ["KOSPI"]:
+    for market in ["KOSPI", "KOSDAQ"]:
         print(f"\n=== {market} 시장 처리 시작 ===")
         
         # 1. 투신, 연기금, 사모 데이터 수집 (detail=True)
@@ -319,6 +472,12 @@ def main():
                 consecutive_days = get_stock_trading_value_by_date(
                     ticker, start_date, today_yyyymmdd, investor_name, detail=True
                 )
+                
+                # 데이터가 없는 경우 해당 종목 건너뛰기
+                if consecutive_days is None:
+                    print(f"Skipping ticker {ticker} due to missing data")
+                    continue
+                
                 top_stocks.at[ticker, '연속매수일'] = consecutive_days
                 
                 # EPS 정보 가져오기
@@ -347,44 +506,50 @@ def main():
         print(f"{market} 투신/연기금/사모 처리 완료")
         
         # 2. 외국인, 기관합계 데이터 수집 (detail=False)
-        # print(f"\n4. {market} 외국인/기관 데이터 수집 시작")
-        # combined_dfs_2 = []
-        # for investor_info in INVESTORS[3:]:
-        #     investor_name = investor_info['name']
-        #     print(f"- {investor_name} 데이터 수집 중...")
-        #     top_stocks = get_top_stocks_by_net_buying(market, today_yyyymmdd, today_yyyymmdd, investor_name)
+        print(f"\n4. {market} 외국인/기관 데이터 수집 시작")
+        combined_dfs_2 = []
+        for investor_info in INVESTORS[3:]:
+            investor_name = investor_info['name']
+            print(f"- {investor_name} 데이터 수집 중...")
+            top_stocks = get_top_stocks_by_net_buying(market, today_yyyymmdd, today_yyyymmdd, investor_name)
             
-        #     print(f"- {investor_name} 연속매수일 및 EPS 계산 중...")
-        #     for ticker in top_stocks.index:
-        #         consecutive_days = get_stock_trading_value_by_date(
-        #             ticker, start_date, today_yyyymmdd, investor_name, detail=False
-        #         )
-        #         top_stocks.at[ticker, '연속매수일'] = consecutive_days
+            print(f"- {investor_name} 연속매수일 및 EPS 계산 중...")
+            for ticker in top_stocks.index:
+                consecutive_days = get_stock_trading_value_by_date(
+                    ticker, start_date, today_yyyymmdd, investor_name, detail=False
+                )
                 
-        #         # EPS 정보 가져오기
-        #         fundamental_df = stock.get_market_fundamental(today_yyyymmdd, today_yyyymmdd, ticker)
-        #         if not fundamental_df.empty:
-        #             eps = fundamental_df.iloc[0]['EPS']
-        #             top_stocks.at[ticker, 'EPS'] = f"{eps:,.0f}"
-        #         else:
-        #             top_stocks.at[ticker, 'EPS'] = "N/A"
+                # 데이터가 없는 경우 해당 종목 건너뛰기
+                if consecutive_days is None:
+                    print(f"Skipping ticker {ticker} due to missing data")
+                    continue
+                
+                top_stocks.at[ticker, '연속매수일'] = consecutive_days
+                
+                # EPS 정보 가져오기
+                fundamental_df = stock.get_market_fundamental(today_yyyymmdd, today_yyyymmdd, ticker)
+                if not fundamental_df.empty:
+                    eps = fundamental_df.iloc[0]['EPS']
+                    top_stocks.at[ticker, 'EPS'] = f"{eps:,.0f}"
+                else:
+                    top_stocks.at[ticker, 'EPS'] = "N/A"
             
-        #     transformed_df = transform_df(top_stocks)
-        #     combined_dfs_2.append(transformed_df)
-        #     print(f"- {investor_name} 처리 완료")
+            transformed_df = transform_df(top_stocks)
+            combined_dfs_2.append(transformed_df)
+            print(f"- {investor_name} 처리 완료")
         
-        # print(f"\n5. {market} 외국인/기관 이미지 생성 및 전송")
-        # new_file_path = save_combined_df_as_image(
-        #     combined_dfs_2, 
-        #     f'combined_investors_2_{market.lower()}.png', 
-        #     today_display,
-        #     market
-        # )
-        # sendTelegramPhoto(
-        #     new_file_path, 
-        #     f"{today_display} {market} 외국인/기관 순매수대금 TOP 15"
-        # )
-        # print(f"{market} 외국인/기관 처리 완료")
+        print(f"\n5. {market} 외국인/기관 이미지 생성 및 전송")
+        new_file_path = save_combined_df_as_image(
+            combined_dfs_2, 
+            f'combined_investors_2_{market.lower()}.png', 
+            today_display,
+            market
+        )
+        sendTelegramPhoto(
+            new_file_path, 
+            f"{today_display} {market} 외국인/기관 순매수대금 TOP 15"
+        )
+        print(f"{market} 외국인/기관 처리 완료")
         
         print(f"\n=== {market} 시장 처리 완료 ===")
     

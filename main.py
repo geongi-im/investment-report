@@ -2,19 +2,22 @@ import sys
 import pandas as pd
 from pykrx import stock
 from datetime import datetime, timedelta, date
-import matplotlib.pyplot as plt
 from urllib.request import urlopen
 import urllib.parse
 import requests
 import re
 import holidays
 import os
-import imgkit  # 추가된 import
+import imgkit
+from dotenv import load_dotenv
 
 # 결과는 18시 이후 나옴
 # 투신, 연기금, 사모 => (금융투자 / 보험 / 투신 / 사모 / 은행 / 기타금융 / 연기금 / 기관합계 / 기타법인 / 개인 / 외국인합계 / 기타외국인 / 전체)
 # data : http://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd?menuId=MDC0201020303
 # github : https://github.com/sharebook-kr/pykrx
+
+# .env 파일 로드
+load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMG_DIR = os.path.join(BASE_DIR, 'img')
@@ -23,8 +26,9 @@ IMG_DIR = os.path.join(BASE_DIR, 'img')
 if not os.path.exists(IMG_DIR):
     os.makedirs(IMG_DIR)
 
-chat_id = "391698624" #mq_bot
-# chat_id = "-4210158716" #MQ_GROUP
+# 환경변수에서 값을 가져오도록 수정
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 # 파일 상단에 상수 정의
 INVESTORS = [
@@ -42,14 +46,14 @@ def isTodayHoliday():
 
 def sendTelegram(message) :
     message = urllib.parse.quote_plus(message)
-    urlopen("https://api.telegram.org/bot7003316340:AAEBx-MW2rEpRJcypv05Iu_mOi-kFUj_tZk/sendMessage?chat_id=${chat_id}&parse_mode=html&text="+message)
+    urlopen(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id={TELEGRAM_CHAT_ID}&parse_mode=html&text={message}")
 
 def sendTelegramPhoto(photo_path, caption=""):
-    url = f"https://api.telegram.org/bot7003316340:AAEBx-MW2rEpRJcypv05Iu_mOi-kFUj_tZk/sendPhoto"
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
 
     with open(photo_path, 'rb') as photo:
         payload = {
-            "chat_id": chat_id,
+            "chat_id": TELEGRAM_CHAT_ID,
             "caption": caption,
             "parse_mode": "html"
         }
@@ -416,7 +420,7 @@ def save_combined_df_as_image(dfs, file_name, today_display, market_type):
         'format': 'png',
         'encoding': "UTF-8",
         'quality': 100,
-        'width': 1200 if len(dfs) == 3 else 800,  # 투신/연기금/사모일 때는 1200, 외국인/기관일 때는 900
+        'width': 1200 if len(dfs) == 3 else 800,  # 투신/연기금/사모일 때는 1200, 외국인/기관일 때는 800
         'enable-local-file-access': None,
         'minimum-font-size': 12
     }

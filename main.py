@@ -10,6 +10,7 @@ import holidays
 import os
 import imgkit
 from dotenv import load_dotenv
+import time
 
 # 결과는 18시 이후 나옴
 # 투신, 연기금, 사모 => (금융투자 / 보험 / 투신 / 사모 / 은행 / 기타금융 / 연기금 / 기관합계 / 기타법인 / 개인 / 외국인합계 / 기타외국인 / 전체)
@@ -29,7 +30,8 @@ if not os.path.exists(IMG_DIR):
 # 환경변수에서 값을 가져오도록 수정
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-
+TELEGRAM_CHAT_TEST_ID = os.getenv('TELEGRAM_CHAT_TEST_ID')
+WKHTMLTOIMAGE_PATH = os.getenv('WKHTMLTOIMAGE_PATH')
 # 파일 상단에 상수 정의
 INVESTORS = [
     {'name': '투신', 'file_prefix': 'top_investment_trust'},
@@ -64,42 +66,58 @@ def sendTelegramPhoto(photo_path, caption=""):
 
     return response.json()
 
+def sendTelegramTest(message):
+    """테스트용 텔레그램 채팅방으로 메시지 전송"""
+    message = urllib.parse.quote_plus(message)
+    urlopen(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id={TELEGRAM_CHAT_TEST_ID}&parse_mode=html&text={message}")
+
 def get_top_stocks_by_net_buying(market, start_date, end_date, investor, top_n=15):
-    df = stock.get_market_net_purchases_of_equities(start_date, end_date, market, investor)
-    top_stocks = df.nlargest(top_n, '순매수거래대금')
-    return top_stocks[['종목명', '순매수거래대금']]
+    max_attempts = 5
+    attempt = 0
+    
+    while attempt < max_attempts:
+        try:
+            df = stock.get_market_net_purchases_of_equities(start_date, end_date, market, investor)
+            if not df.empty:
+                top_stocks = df.nlargest(top_n, '순매수거래대금')
+                return top_stocks[['종목명', '순매수거래대금']]
+        except Exception as e:
+            print(f"데이터 조회 시도 {attempt + 1}/{max_attempts} 실패: {str(e)}")
+        
+        attempt += 1
+        if attempt < max_attempts:
+            print(f"20초 후 재시도합니다...")
+            time.sleep(20)  # 20초 대기 후 재시도
+    
+    error_message = f"❌ 오류 발생\n\n함수: get_top_stocks_by_net_buying\n시장: {market}\n투자자: {investor}\n기간: {start_date}~{end_date}\n\n5회 재시도 모두 실패"
+    sendTelegramTest(error_message)
+    print(f"{market} 시장의 {investor} 데이터를 가져오는데 실패했습니다.")
+    return None
 
 def get_stock_trading_value_by_date(ticker, start_date, end_date, investor, detail=True):
-    """
-    주식 거래 데이터를 가져오는 함수
-    Args:
-        ticker: 종목 코드
-        start_date: 시작일
-        end_date: 종료일
-        investor: 투자자 유형
-        detail: 상세 데이터 여부 (기본값: True)
-    Returns:
-        int: 연속 매수일 수
-        None: 데이터가 없는 경우
-    """
-    try:
-        df = stock.get_market_trading_value_by_date(start_date, end_date, ticker, detail=detail)
+    max_attempts = 5
+    attempt = 0
+    
+    while attempt < max_attempts:
+        try:
+            df = stock.get_market_trading_value_by_date(start_date, end_date, ticker, detail=detail)
+            if not df.empty:
+                df_sorted = df.sort_index(ascending=False)
+                investor_key = '외국인합계' if investor == '외국인' else investor
+                consecutive_positive_days = check_consecutive_positive_days(df_sorted[investor_key])
+                return consecutive_positive_days
+        except Exception as e:
+            print(f"데이터 조회 시도 {attempt + 1}/{max_attempts} 실패: {str(e)}")
         
-        # DataFrame이 비어있는 경우 None 반환
-        if df.empty:
-            print(f"Warning: No data available for ticker {ticker}")
-            return None
-            
-        df_sorted = df.sort_index(ascending=False)
-        
-        # 외국인의 경우 '외국인합계' 컬럼 사용
-        investor_key = '외국인합계' if investor == '외국인' else investor
-        consecutive_positive_days = check_consecutive_positive_days(df_sorted[investor_key])
-        return consecutive_positive_days
-        
-    except Exception as e:
-        print(f"Error processing ticker {ticker}: {str(e)}")
-        return None
+        attempt += 1
+        if attempt < max_attempts:
+            print(f"20초 후 재시도합니다...")
+            time.sleep(20)  # 20초 대기 후 재시도
+    
+    error_message = f"❌ 오류 발생\n\n함수: get_stock_trading_value_by_date\n종목: {ticker}\n투자자: {investor}\n기간: {start_date}~{end_date}\n상세여부: {detail}\n\n5회 재시도 모두 실패"
+    sendTelegramTest(error_message)
+    print(f"종목 {ticker}의 거래 데이터를 가져오는데 실패했습니다.")
+    return None
 
 def check_consecutive_positive_days(series):
     max_consecutive_days = 0
@@ -116,11 +134,28 @@ def check_consecutive_positive_days(series):
     return max_consecutive_days
 
 def get_top_15_stocks_by_volume(date):
-    ohlcv_data = stock.get_market_ohlcv(date=date, market="ALL") # 특정 날짜의 모든 종목의 OHLCV 데이터를 가져옵니다.
-    ohlcv_data['거래량'] = ohlcv_data['거래량'].astype(int) # '거래량' 열을 정수형으로 변환합니다.
-    sorted_data = ohlcv_data.sort_values(by="거래량", ascending=False) # DataFrame을 거래량 기준으로 내림차순으로 정렬합니다.
-    top_15_stocks = sorted_data.head(15) # 상위 15개 종목을 선택합니다.
-    return top_15_stocks
+    max_attempts = 5
+    attempt = 0
+    
+    while attempt < max_attempts:
+        try:
+            ohlcv_data = stock.get_market_ohlcv(date=date, market="ALL")
+            if not ohlcv_data.empty and {'거래량'}.issubset(ohlcv_data.columns):
+                ohlcv_data['거래량'] = ohlcv_data['거래량'].astype(int)
+                sorted_data = ohlcv_data.sort_values(by="거래량", ascending=False)
+                return sorted_data.head(15)
+        except Exception as e:
+            print(f"데이터 조회 시도 {attempt + 1}/{max_attempts} 실패: {str(e)}")
+        
+        attempt += 1
+        if attempt < max_attempts:
+            print(f"20초 후 재시도합니다...")
+            time.sleep(20)  # 20초 대기 후 재시도
+    
+    error_message = f"❌ 오류 발생\n\n함수: get_top_15_stocks_by_volume\n날짜: {date}\n\n5회 재시도 모두 실패"
+    sendTelegramTest(error_message)
+    print(f"{date}에 대한 거래 데이터를 가져오는데 실패했습니다.")
+    return None
 
 def transform_df(df):
     df = df.reset_index(drop=True)  # 인덱스 제거
@@ -272,15 +307,21 @@ def save_df_as_image(df, file_name, title):
     }
 
     try:
-        # wkhtmltoimage 경로 설정 (필요한 경우)
-        config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe') #for windows
-        # config = imgkit.config(wkhtmltoimage='/usr/local/bin/wkhtmltoimage') #for centos
+        if not WKHTMLTOIMAGE_PATH:
+            error_message = "❌ 오류 발생\n\nWKHTMLTOIMAGE_PATH 환경변수가 설정되지 않았습니다."
+            sendTelegramTest(error_message)
+            raise ValueError("WKHTMLTOIMAGE_PATH 환경변수가 필요합니다.")
+            
+        # wkhtmltoimage 경로 설정
+        config = imgkit.config(wkhtmltoimage=WKHTMLTOIMAGE_PATH)
         
         # HTML을 이미지로 변환
         imgkit.from_string(html_str, new_file_path, options=options, config=config)
         print(f"새 파일 저장: {new_file_path}")
         return new_file_path
     except Exception as e:
+        error_message = f"❌ 오류 발생\n\n함수: save_df_as_image\n파일: {file_name}\n오류: {str(e)}"
+        sendTelegramTest(error_message)
         print(f"이미지 생성 중 오류 발생: {str(e)}")
         return None
 
@@ -427,8 +468,7 @@ def save_combined_df_as_image(dfs, file_name, today_display, market_type):
 
     try:
         # wkhtmltoimage 경로 설정 (필요한 경우)
-        config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe') #for windows
-        # config = imgkit.config(wkhtmltoimage='/usr/local/bin/wkhtmltoimage') #for centos
+        config = imgkit.config(wkhtmltoimage=WKHTMLTOIMAGE_PATH)
         
         # HTML을 이미지로 변환
         imgkit.from_string(html_str, new_file_path, options=options, config=config)

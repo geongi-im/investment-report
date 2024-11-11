@@ -154,13 +154,11 @@ class VolumeReport:
 
     def create_report(self, date, today_display):
         """거래량 보고서 생성"""
-        print("\n1. 전종목 거래량 TOP 15 처리 시작")
         top_stocks = self.get_top_15_stocks_by_volume(date)
         
         if top_stocks is not None:
             transformed_df = self.transform_df(top_stocks)
             title = f"{today_display} 전종목 거래량 TOP 15"
             self.save_df_as_image(transformed_df, title)
-            print("전종목 거래량 TOP 15 처리 완료")
             return transformed_df
         return None 

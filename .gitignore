@@ -7,7 +7,7 @@ __pycache__/
 *$py.class
 
 # Images
-img/
+# img/
 
 # Virtual Environment
 venv/

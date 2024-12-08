@@ -12,3 +12,6 @@ img/
 # Virtual Environment
 venv/
 env/
+
+#etc
+docs_cache/

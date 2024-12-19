@@ -16,9 +16,9 @@ class VolumeReport:
             os.makedirs(self.img_dir)
 
     def save_df_as_image(self, df, title, file_name='top_volume.png'):
-        """DataFrame을 이미지로 저장"""
+        """DataFrame을 이미지로 저장하고 파일 경로와 제목 반환"""
         if df is None or df.empty:
-            return None
+            return None, None
 
         file_name, file_extension = os.path.splitext(file_name)
         current_date = datetime.now().strftime('%Y%m%d')
@@ -110,16 +110,13 @@ class VolumeReport:
             imgkit.from_string(html_str, new_file_path, options=options, config=config)
             print(f"새 파일 저장: {new_file_path}")
             
-            # 텔레그램으로 이미지 전송
-            self.telegram.send_photo(new_file_path, title)
-            
-            return new_file_path
+            return new_file_path, title
             
         except Exception as e:
             error_message = f"❌ 오류 발생\n\n함수: save_df_as_image\n파일: {file_name}\n오류: {str(e)}"
             self.telegram.send_test_message(error_message)
             print(f"이미지 생성 중 오류 발생: {str(e)}")
-            return None
+            return None, None
 
     def get_top_15_stocks_by_volume(self, date):
         """거래량 기준 상위 15개 종목 추출"""
@@ -153,12 +150,15 @@ class VolumeReport:
         return df[['종목명', '거래량']]
 
     def create_report(self, date, today_display):
-        """거래량 보고서 생성"""
+        """거래량 보고서를 생성하고 이미지 경로 리스트 반환"""
+        image_paths = []
         top_stocks = self.get_top_15_stocks_by_volume(date)
         
         if top_stocks is not None:
             transformed_df = self.transform_df(top_stocks)
             title = f"{today_display} 전종목 거래량 TOP 15"
-            self.save_df_as_image(transformed_df, title)
-            return transformed_df
-        return None 
+            img_path, caption = self.save_df_as_image(transformed_df, title)
+            if img_path:
+                image_paths.append((img_path, caption))
+        
+        return image_paths 

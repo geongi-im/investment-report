@@ -23,7 +23,7 @@ class InvestorReport:
         ]
 
     def save_combined_df_as_image(self, dfs, file_name, today_display, market_type):
-        """여러 DataFrame을 하나의 이미지로 저장"""
+        """여러 DataFrame을 하나의 이미지로 저장하고 파일 경로 반환"""
         if not file_name.endswith('.png'):
             file_name = file_name + '.png'
             
@@ -169,9 +169,6 @@ class InvestorReport:
             imgkit.from_string(html_str, new_file_path, options=options, config=config)
             print(f"새 파일 저장: {new_file_path}")
             
-            # 텔레그램으로 이미지 전송
-            self.telegram.send_photo(new_file_path, caption)
-            
             return new_file_path
             
         except Exception as e:
@@ -251,8 +248,9 @@ class InvestorReport:
         return df[['종목명', '순매수거래대금']]
 
     def create_report(self, date, start_date):
-        """투자자별 보고서 생성"""
+        """투자자별 보고서를 생성하고 이미지 경로 리스트 반환"""
         markets = ["KOSPI", "KOSDAQ"]
+        all_image_paths = []
         
         for market in markets:
             print(f"\n=== {market} 시장 투자자 데이터 처리 시작 ===")
@@ -288,6 +286,10 @@ class InvestorReport:
                 if combined_dfs:
                     today_display = datetime.strptime(date, '%Y%m%d').strftime('%Y-%m-%d')
                     file_name = f'combined_investors_{group_index}_{market.lower()}.png'
-                    self.save_combined_df_as_image(combined_dfs, file_name, today_display, market)
+                    img_path = self.save_combined_df_as_image(combined_dfs, file_name, today_display, market)
+                    if img_path:
+                        all_image_paths.append(img_path)
             
             print(f"=== {market} 시장 투자자 데이터 처리 완료 ===")
+        
+        return all_image_paths

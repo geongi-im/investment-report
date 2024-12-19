@@ -189,7 +189,7 @@ class RSReport:
         return None
 
     def save_rs_ranking_as_image(self, df, market, period, today_display):
-        """RS 랭킹 데이터를 이미지로 저장"""
+        """RS 랭킹 데이터를 이미지로 저장하고 파일 경로 반환"""
         if df is None or df.empty:
             return None
 
@@ -286,9 +286,6 @@ class RSReport:
             imgkit.from_string(html_str, new_file_path, options=options, config=config)
             print(f"새 파일 저장: {new_file_path}")
             
-            # 텔레그램으로 이미지 전송
-            self.telegram.send_photo(new_file_path, title)
-            
             return new_file_path
             
         except Exception as e:
@@ -298,29 +295,29 @@ class RSReport:
             return None
 
     def create_report(self, date_str, period=20):
-        """RS 보고서를 생성합니다."""
+        """RS 보고서를 생성하고 이미지 경로 리스트 반환"""
         markets = ["KOSPI", "KOSDAQ"]
-        results = {}
+        image_paths = []
         today_display = datetime.strptime(date_str, '%Y%m%d').strftime('%Y-%m-%d')
         
         for market in markets:
             print(f"\n=== {market} 시장 RS 데이터 처리 시작 ===")
-            results[market] = {}
             
             print(f"{market} {period}일 RS 랭킹 계산 중...")
             ranking_df = self.get_market_rs_ranking(market, period)
             
             if ranking_df is not None and not ranking_df.empty:
-                results[market][period] = ranking_df
                 transformed_df = self.transform_df(ranking_df)
                 if transformed_df is not None:
-                    self.save_rs_ranking_as_image(transformed_df, market, period, today_display)
+                    img_path = self.save_rs_ranking_as_image(transformed_df, market, period, today_display)
+                    if img_path:
+                        image_paths.append(img_path)
                 print(f"{market} {period}일 RS 랭킹 계산 완료")
             
             time.sleep(1)  # API 호출 제한 방지
             print(f"=== {market} 시장 RS 데이터 처리 완료 ===")
         
-        return results
+        return image_paths
 
     def transform_df(self, df):
         """DataFrame 형식을 변환합니다."""

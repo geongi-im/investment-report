@@ -15,3 +15,5 @@ env/
 
 #etc
 docs_cache/
+
+*.log

@@ -5,7 +5,6 @@ import requests
 from dotenv import load_dotenv
 import json
 
-# .env 파일 로드
 load_dotenv()
 
 class TelegramUtil:
@@ -60,7 +59,6 @@ class TelegramUtil:
                 'parse_mode': 'html'
             })
             
-            # 파일 열기
             files[f'photo{index}'] = open(photo_path, 'rb')
         
         try:
@@ -69,10 +67,7 @@ class TelegramUtil:
                 'media': json.dumps(media)
             }
             
-            # 요청 보내기
             response = requests.post(url, data=payload, files=files)
-            
-            # 파일들 닫기
             for file in files.values():
                 file.close()
             

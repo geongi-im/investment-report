@@ -9,7 +9,6 @@ from utils.telegram_util import TelegramUtil
 from utils.api_util import ApiUtil, ApiError
 from utils.logger_util import LoggerUtil
 
-# .env 파일 로드
 load_dotenv()
 
 def isTodayHoliday():
@@ -18,7 +17,6 @@ def isTodayHoliday():
     return today in kr_holidays
 
 def main():
-    # 로거 초기화
     logger = LoggerUtil().get_logger()
     
     if isTodayHoliday():
@@ -27,13 +25,12 @@ def main():
 
     logger.info("\n=== 데이터 수집 시작 ===")
     
-    # 유틸리티 초기화
     telegram = TelegramUtil()
     api_util = ApiUtil()
     
     # 날짜 설정
     today_yyyymmdd = datetime.today().strftime('%Y%m%d')
-    # today_yyyymmdd = '20241219'  # 테스트용
+    # today_yyyymmdd = '20250217'  # 테스트용
     today_dt = datetime.strptime(today_yyyymmdd, '%Y%m%d')
     start_date = (today_dt - timedelta(days=15)).strftime('%Y%m%d')
     today_display = today_dt.strftime('%Y-%m-%d')

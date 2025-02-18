@@ -14,7 +14,7 @@ class ApiError(Exception):
 
 class ApiUtil:
     def __init__(self):
-        self.base_url = "https://mqway.com/api"
+        self.base_url = "http://localhost/api"
         self.headers = {
             "Accept": "application/json"
         }
@@ -72,7 +72,9 @@ class ApiUtil:
                             compressed_image, format = self._compress_image(image_path)
                             # 원본 파일명 사용
                             original_filename = os.path.basename(image_path)
-                            files['image'] = (original_filename, compressed_image, f'image/{format}')
+                            # 각 이미지를 배열로 전송
+                            files[f'image[{i}]'] = (original_filename, compressed_image, f'image/{format}')
+                            self.logger.debug(f"이미지 {i+1} 추가: {original_filename}")
                         except Exception as e:
                             self.logger.error(f"이미지 처리 실패: {image_path} - {str(e)}")
                             continue
@@ -90,7 +92,35 @@ class ApiUtil:
                 }
                 
                 try:
-                    response = requests.post(url, headers=self.headers, data=data, files=files)
+                    # 요청 데이터 로깅 추가
+                    self.logger.debug(f"API 요청 데이터: {data}")
+                    self.logger.debug(f"파일 데이터: {[f'{k}: {v[0]}' for k, v in files.items()]}")
+                    
+                    # multipart/form-data로 전송 시에는 Content-Type 헤더를 제거 (requests가 자동으로 설정)
+                    headers = self.headers.copy()
+                    
+                    # form-data 형식으로 전송
+                    form_data = {}
+                    for key, value in data.items():
+                        # Laravel 필드명에 맞게 수정
+                        form_data[key] = (None, str(value))
+                    
+                    # 이미지 파일 추가
+                    form_data.update(files)
+                    
+                    # 디버그 로그 추가
+                    self.logger.debug(f"최종 전송 데이터: {[(k, v[0] if isinstance(v, tuple) else v) for k, v in form_data.items()]}")
+                    
+                    response = requests.post(
+                        url, 
+                        headers=headers,
+                        files=form_data,
+                        timeout=30
+                    )
+                    
+                    # 응답 상태 코드 로깅
+                    self.logger.debug(f"응답 상태 코드: {response.status_code}")
+                    self.logger.debug(f"응답 헤더: {dict(response.headers)}")
                 finally:
                     files.clear()
             else:
@@ -118,9 +148,11 @@ class ApiUtil:
 
                 self.logger.info(f"게시글 생성 성공 - 제목: {title}")
                 
-                # 이미지 URL 확인
-                if image_paths and not response_data.get('data', {}).get('image_url'):
-                    self.logger.warning(f"이미지가 포함된 게시글이지만 image_url이 없습니다. - 제목: {title}")
+                # 이미지 URL 확인 로직 수정
+                if image_paths and not response_data.get('data', {}).get('image_urls'):
+                    self.logger.warning(f"이미지가 포함된 게시글이지만 image_urls가 비어있습니다. - 제목: {title}")
+                elif image_paths:
+                    self.logger.info(f"이미지 URL: {response_data.get('data', {}).get('image_urls')}")
                 
                 return response_data
                 
@@ -132,4 +164,38 @@ class ApiUtil:
         except requests.RequestException as e:
             error_msg = f"API 요청 중 오류 발생\n제목: {title}\n카테고리: {category}\n오류: {str(e)}"
             self.logger.error(error_msg)
-            raise ApiError(500, error_msg) 
+            raise ApiError(500, error_msg)
+
+if __name__ == "__main__":
+    # API 테스트
+    api = ApiUtil()
+    
+    # 테스트할 이미지 경로
+    image_paths = [
+        "img/opm_kospi_20241209.jpg",
+        "img/opm_kosdaq_20241209.jpg"
+    ]
+    
+    # 테스트 데이터
+    test_data = {
+        "title": "API 이미지 전송 테스트",
+        "content": "이미지 전송 테스트를 위한 게시글입니다.",
+        "category": "거래량",
+        "writer": "테스터"
+    }
+    
+    try:
+        # API 호출 테스트
+        result = api.create_post(
+            title=test_data["title"],
+            content=test_data["content"],
+            category=test_data["category"],
+            writer=test_data["writer"],
+            image_paths=image_paths
+        )
+        print("API 호출 결과:", result)
+        
+    except ApiError as e:
+        print(f"API 에러 발생: {e}")
+    except Exception as e:
+        print(f"예상치 못한 에러 발생: {e}") 

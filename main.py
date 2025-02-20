@@ -49,7 +49,7 @@ def main():
                 title=caption,
                 content="전종목 거래량 상위 15개 종목 분석 결과",
                 category="거래량",
-                writer="api",
+                writer="admin",
                 image_paths=image_paths
             )
         except ApiError as e:
@@ -69,7 +69,7 @@ def main():
                 title=caption,
                 content="시장별 투자자 순매수대금 상위 15개 종목 분석 결과",
                 category="순매수대금",
-                writer="api",
+                writer="admin",
                 image_paths=investor_images
             )
         except ApiError as e:
@@ -89,7 +89,7 @@ def main():
                 title=caption,
                 content="시장별 RS(Relative Strength) 상위 15개 종목 분석 결과",
                 category="RS랭킹",
-                writer="api",
+                writer="admin",
                 image_paths=rs_images
             )
         except ApiError as e:

@@ -10,7 +10,7 @@ import re
 class InvestorReport:
     def __init__(self):
         self.telegram = TelegramUtil()
-        self.img_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'img')
+        self.img_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'img')
         self.wkhtmltoimage_path = os.getenv('WKHTMLTOIMAGE_PATH')
         
         # 투자자 그룹 정의

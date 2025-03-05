@@ -12,7 +12,7 @@ import imgkit
 class RSReport:
     def __init__(self):
         self.telegram = TelegramUtil()
-        self.img_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'img')
+        self.img_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'img')
         self.wkhtmltoimage_path = os.getenv('WKHTMLTOIMAGE_PATH')
         self.kospi_benchmark = '1001'  # KOSPI 지수
         self.kosdaq_benchmark = '2001'  # KOSDAQ 지수

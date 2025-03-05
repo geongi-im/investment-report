@@ -9,7 +9,7 @@ import imgkit
 class VolumeReport:
     def __init__(self):
         self.telegram = TelegramUtil()
-        self.img_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'img')
+        self.img_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'img')
         self.wkhtmltoimage_path = os.getenv('WKHTMLTOIMAGE_PATH')
         
         if not os.path.exists(self.img_dir):

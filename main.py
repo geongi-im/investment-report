@@ -1,6 +1,7 @@
 import sys
 from datetime import datetime, timedelta
 import holidays
+from reports.high52_week_report import High52WeekReport
 from reports.volume_report import VolumeReport
 from reports.investor_report import InvestorReport
 from reports.rs_report import RSReport
@@ -96,6 +97,26 @@ def main():
             error_message = f"❌ API 오류 발생\n\n{e.message}"
             telegram.send_test_message(error_message)
     logger.info("RS 데이터 처리 완료")
+
+    # 4. 52주 신고가 종목 데이터 처리
+    logger.info("\n4. 52주 신고가 종목 데이터 처리 시작")
+    high52_week_reporter = High52WeekReport()
+    high52_week_images = high52_week_reporter.create_report()
+    if high52_week_images:
+        caption = f"{today_display} 52주 신고가 종목 리포트"
+        telegram.send_multiple_photo(high52_week_images, caption)
+        try:
+            api_util.create_post(
+                title=caption,
+                content="52주 신고가 종목 리포트",
+                category="52주 신고가",
+                writer="admin",
+                image_paths=high52_week_images
+            )
+        except ApiError as e:
+            error_message = f"❌ API 오류 발생\n\n{e.message}"
+            telegram.send_test_message(error_message)
+    logger.info("52주 신고가 종목 데이터 처리 완료")
     
     logger.info("\n=== 모든 데이터 처리 완료 ===")
 

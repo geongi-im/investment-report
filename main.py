@@ -109,7 +109,7 @@ def main():
             api_util.create_post(
                 title=caption,
                 content="52주 신고가 종목 리포트",
-                category="52주 신고가",
+                category="52주신고가",
                 writer="admin",
                 image_paths=high52_week_images
             )

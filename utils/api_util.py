@@ -57,18 +57,19 @@ class ApiUtil:
             self.logger.error(f"이미지 압축 실패: {image_path} - {str(e)}")
             raise
 
-    def create_post(self, title: str, content: str, category: str, writer: str, image_paths: Optional[List[str]] = None):
+    def create_post(self, title: str, content: str, category: str, writer: str, image_paths: Optional[List[str]] = None, thumbnail_image_path: str = None):
         """게시글 생성 API 호출"""
         url = f"{self.base_url}/board-research"
         
         try:
             if image_paths:
                 self.logger.info(f"게시글 생성 시작 (이미지 포함) - 제목: {title}")
+                
                 # 이미지와 함께 게시글 등록
                 files = {}
                 for i, image_path in enumerate(image_paths):
                     if os.path.exists(image_path):
-                        try:
+                        try: 
                             compressed_image, format = self._compress_image(image_path)
                             # 원본 파일명 사용
                             original_filename = os.path.basename(image_path)
@@ -78,7 +79,7 @@ class ApiUtil:
                         except Exception as e:
                             self.logger.error(f"이미지 처리 실패: {image_path} - {str(e)}")
                             continue
-                
+                                
                 if not files:
                     error_msg = "처리 가능한 이미지가 없습니다."
                     self.logger.error(error_msg)
@@ -90,6 +91,16 @@ class ApiUtil:
                     "category": category,
                     "writer": writer
                 }
+
+                # 썸네일 이미지 처리
+                thumbnail_image = {}
+                if thumbnail_image_path:
+                    try:
+                        compressed_image, format = self._compress_image(thumbnail_image_path)
+                        thumbnail_image['thumbnail_image'] = (thumbnail_image_path, compressed_image, f'image/{format}')
+                        self.logger.debug(f"썸네일 이미지 추가: {thumbnail_image_path}")
+                    except Exception as e:
+                        self.logger.error(f"썸네일 이미지 처리 실패: {thumbnail_image_path} - {str(e)}")
                 
                 try:
                     # 요청 데이터 로깅 추가
@@ -107,6 +118,7 @@ class ApiUtil:
                     
                     # 이미지 파일 추가
                     form_data.update(files)
+                    form_data.update(thumbnail_image)
                     
                     # 디버그 로그 추가
                     self.logger.debug(f"최종 전송 데이터: {[(k, v[0] if isinstance(v, tuple) else v) for k, v in form_data.items()]}")

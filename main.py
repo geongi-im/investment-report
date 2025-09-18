@@ -1,3 +1,4 @@
+import os
 import sys
 from datetime import datetime, timedelta
 import holidays
@@ -51,7 +52,8 @@ def main():
                 content="전종목 거래량 상위 15개 종목 분석 결과",
                 category="거래량",
                 writer="admin",
-                image_paths=image_paths
+                image_paths=image_paths,
+                thumbnail_image_path=os.path.abspath("thumbnail/thumbnail_volume_top15.png")
             )
         except ApiError as e:
             error_message = f"❌ API 오류 발생\n\n{e.message}"
@@ -71,7 +73,8 @@ def main():
                 content="시장별 투자자 순매수대금 상위 15개 종목 분석 결과",
                 category="순매수대금",
                 writer="admin",
-                image_paths=investor_images
+                image_paths=investor_images,
+                thumbnail_image_path=os.path.abspath("thumbnail/thumbnail_investor_top15.png")
             )
         except ApiError as e:
             error_message = f"❌ API 오류 발생\n\n{e.message}"
@@ -91,7 +94,8 @@ def main():
                 content="시장별 RS(Relative Strength) 상위 15개 종목 분석 결과",
                 category="RS랭킹",
                 writer="admin",
-                image_paths=rs_images
+                image_paths=rs_images,
+                thumbnail_image_path=os.path.abspath("thumbnail/thumbnail_rs_top15.png")
             )
         except ApiError as e:
             error_message = f"❌ API 오류 발생\n\n{e.message}"
@@ -111,7 +115,8 @@ def main():
                 content="52주 신고가 종목 리포트",
                 category="52주신고가",
                 writer="admin",
-                image_paths=high52_week_images
+                image_paths=high52_week_images,
+                thumbnail_image_path=os.path.abspath("thumbnail/thumbnail_high52_week.png")
             )
         except ApiError as e:
             error_message = f"❌ API 오류 발생\n\n{e.message}"

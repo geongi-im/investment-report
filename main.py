@@ -53,7 +53,7 @@ def main():
                 category="거래량",
                 writer="admin",
                 image_paths=image_paths,
-                thumbnail_image_path=os.path.abspath("thumbnail/thumbnail_volume_top15.png")
+                thumbnail_image_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'thumbnail', 'thumbnail_volume_top15.png')
             )
         except ApiError as e:
             error_message = f"❌ API 오류 발생\n\n{e.message}"
@@ -74,7 +74,7 @@ def main():
                 category="순매수대금",
                 writer="admin",
                 image_paths=investor_images,
-                thumbnail_image_path=os.path.abspath("thumbnail/thumbnail_investor_top15.png")
+                thumbnail_image_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'thumbnail', 'thumbnail_investor_top15.png')
             )
         except ApiError as e:
             error_message = f"❌ API 오류 발생\n\n{e.message}"
@@ -95,7 +95,7 @@ def main():
                 category="RS랭킹",
                 writer="admin",
                 image_paths=rs_images,
-                thumbnail_image_path=os.path.abspath("thumbnail/thumbnail_rs_top15.png")
+                thumbnail_image_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'thumbnail', 'thumbnail_rs_top15.png')
             )
         except ApiError as e:
             error_message = f"❌ API 오류 발생\n\n{e.message}"
@@ -116,7 +116,7 @@ def main():
                 category="52주신고가",
                 writer="admin",
                 image_paths=high52_week_images,
-                thumbnail_image_path=os.path.abspath("thumbnail/thumbnail_high52_week.png")
+                thumbnail_image_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'thumbnail', 'thumbnail_high52_week.png')
             )
         except ApiError as e:
             error_message = f"❌ API 오류 발생\n\n{e.message}"

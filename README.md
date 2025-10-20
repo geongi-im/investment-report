@@ -1,11 +1,11 @@
-# 📈 Investment Report - 주식 시장 분석 자동화 시스템
+# Investment Report - 주식 시장 분석 자동화 시스템
 
 한국 주식시장(KOSPI/KOSDAQ)의 일간 데이터를 자동으로 수집하여 시각화된 리포트를 생성하고, 텔레그램과 웹 API를 통해 배포하는 자동화 시스템입니다.
 
 ![거래량 TOP15](https://github.com/user-attachments/assets/cf3e321f-28d4-4857-8fb2-97ebd2f56fae)
 ![순매수대금 TOP15](https://github.com/user-attachments/assets/ec76c682-df3b-4e74-afe7-ecef22043f58)
 
-## 🎯 주요 기능
+## 주요 기능
 
 ### 1. 거래량 분석 리포트
 - KOSPI/KOSDAQ 전종목 중 일간 거래량 TOP 15 종목 분석
@@ -26,7 +26,7 @@
 - 현재가, 시가총액, 거래량 정보 포함
 - 네이버 금융 API 연동
 
-## 🛠 기술 스택
+## 기술 스택
 
 ### 핵심 라이브러리
 - **pykrx** (1.0.47): 한국 주식시장 데이터 수집 API
@@ -42,7 +42,7 @@
 - **python-dotenv** (1.0.1): 환경변수 관리
 - **holidays** (0.54): 한국 공휴일 체크
 
-## 📁 프로젝트 구조
+## 프로젝트 구조
 
 ```
 investment-report/
@@ -73,7 +73,7 @@ investment-report/
 └── logs/                         # 일별 로그 파일
 ```
 
-## 🚀 설치 및 실행
+## 설치 및 실행
 
 ### 1. 필요한 패키지 설치
 
@@ -116,7 +116,7 @@ DART_API_KEY=your_dart_api_key_here
 python main.py
 ```
 
-## 📊 데이터 흐름
+## 데이터 흐름
 
 ```
 ┌─────────────────┐
@@ -153,7 +153,7 @@ python main.py
 └─────────────────┘ └────────────────┘
 ```
 
-## 🔧 주요 모듈 설명
+## 주요 모듈 설명
 
 ### main.py
 - 전체 리포트 생성 프로세스 오케스트레이션
@@ -205,7 +205,7 @@ python main.py
 - 일별 로그 파일 생성 (`logs/YYYY-MM-DD_log.log`)
 - 로그 레벨: DEBUG, INFO, WARNING, ERROR
 
-## 🎨 이미지 생성 프로세스
+## 이미지 생성 프로세스
 
 ### HTML 템플릿 특징
 - **폰트**: Noto Sans KR (Google Fonts) - 한글 지원
@@ -222,7 +222,7 @@ python main.py
 3. 1MB 이하로 압축 (품질 자동 조정)
 4. EXIF 메타데이터 제거
 
-## 📅 자동화 스케줄링 (권장)
+## 자동화 스케줄링 (권장)
 
 현재는 수동 실행이지만, 다음과 같이 자동화할 수 있습니다:
 
@@ -238,7 +238,7 @@ python main.py
 0 16 * * 1-5 cd /path/to/investment-report && python main.py
 ```
 
-## 🔒 보안 및 에러 처리
+## 보안 및 에러 처리
 
 ### 재시도 로직
 - pykrx API 호출: 5회 재시도 (20초 간격)
@@ -254,7 +254,7 @@ python main.py
 - 로그 레벨별 필터링 가능
 - 콘솔과 파일 동시 출력
 
-## 🚧 향후 개선 계획
+## 향후 개선 계획
 
 - [ ] APScheduler를 활용한 자동 스케줄링 기능 추가
 - [ ] 데이터베이스 연동으로 히스토리 관리
@@ -263,11 +263,11 @@ python main.py
 - [ ] 병렬 처리를 통한 성능 최적화
 - [ ] 단위 테스트 및 통합 테스트 확대
 
-## 📝 라이선스
+## 라이선스
 
 본 프로젝트는 개인 포트폴리오 목적으로 제작되었습니다.
 
-## 📮 문의
+## 문의
 
 프로젝트 관련 문의사항이나 이슈는 GitHub Issues를 통해 등록해주세요.
 

@@ -4,6 +4,7 @@ import urllib.parse
 import requests
 from dotenv import load_dotenv
 import json
+import inspect
 
 load_dotenv()
 
@@ -36,9 +37,23 @@ class TelegramUtil:
         return response.json()
 
     def send_test_message(self, message):
-        """테스트용 채팅방으로 메시지 전송"""
-        message = urllib.parse.quote_plus(message)
-        urlopen(f"https://api.telegram.org/bot{self.bot_token}/sendMessage?chat_id={self.chat_test_id}&parse_mode=html&text={message}") 
+        """테스트용 채팅방으로 메시지 전송 (에러 발생 위치 포함)"""
+        try:
+            caller_frame = inspect.stack()[1]
+            caller_file = caller_frame.filename
+
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            project_name = os.path.basename(project_root)
+            rel_path = os.path.relpath(caller_file, project_root).replace("\\", "/")
+
+            postfix = f"PATH : {project_name}/{rel_path}"
+            full_message = f"{message}\n{postfix}"
+        except Exception:
+            # 경로 계산 실패 시 원본 메시지만 전송
+            full_message = message
+
+        encoded_message = urllib.parse.quote_plus(full_message)
+        urlopen(f"https://api.telegram.org/bot{self.bot_token}/sendMessage?chat_id={self.chat_test_id}&parse_mode=html&text={encoded_message}") 
     
     def send_multiple_photo(self, photo_paths, caption=""):
         """여러 장의 이미지 한 번에 전송"""

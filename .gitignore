@@ -17,3 +17,6 @@ env/
 docs_cache/
 
 *.log
+
+# Claude Code
+.claude/

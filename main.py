@@ -2,7 +2,7 @@ import os
 import sys
 from datetime import datetime, timedelta
 import holidays
-# krx_session_util 은 reports.* 보다 먼저 import — pykrx 내장 자동 로그인(CD010) 억제
+# krx_session_util 은 reports.* 보다 먼저 import - .env 계정을 pykrx 에 넘긴 뒤 로그인
 from utils.krx_session_util import install_krx_session, KrxSessionError
 from reports.high52_week_report import High52WeekReport
 from reports.volume_report import VolumeReport
@@ -32,7 +32,7 @@ def main():
     telegram = TelegramUtil()
     api_util = ApiUtil()
 
-    # KRX 로그인 세션 주입 (pykrx 내장 계정이 CD010 으로 실패하므로 필수)
+    # KRX 로그인 확인 (KRX 데이터 조회는 로그인 세션이 필수)
     try:
         install_krx_session()
         logger.info("KRX 로그인 세션 주입 완료")
